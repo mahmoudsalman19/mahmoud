@@ -535,6 +535,12 @@ function renderPicker() {
 
 const procLabel = () => call.process === "Other" ? (call.procOther.trim() || "Other") : call.process;
 const painLabels = () => [...call.pains].map(k => k === "Other" ? (call.painOther.trim() || "Other") : k);
+function openerReason(i) {
+  const k = i.opener.indexOf("Self Inspection. ");
+  let r = k >= 0 ? i.opener.slice(k + 17) : i.opener;
+  r = r.replace(/^I'll be quick, /, "");
+  return "Anyway, I'll keep it quick. " + r.charAt(0).toUpperCase() + r.slice(1);
+}
 function bookLine() {
   const p = painLabels().filter(x => x !== "Other");
   const pain = p.length ? p[0].toLowerCase() : "[the headache they gave you]";
@@ -546,12 +552,15 @@ function scriptTab(i) {
   ${i.caution ? `<div class="caution" style="margin-bottom:12px"><b>Heads up.</b> ${esc(i.caution)}</div>` : ""}
   <article class="step">
     <div class="step-h"><span class="num">1</span><h2>Opener</h2><span class="hint">Under 15 seconds</span></div>
-    <div class="say">${esc(i.opener)}</div>
-    <div class="say soft">Don't know if the name rings a bell?</div>
+    <div class="say">Hey [Name], it's Mahmoud from Self Inspection. I don't know if you've heard of the name before?</div>
+    <div class="say soft">Not sure if the name sounds familiar?</div>
+    <div class="label">Wait for their answer</div>
     <div class="branch">
-      <div><b>Yes</b>Nice, marketing's doing their job.</div>
+      <div><b>Yes</b>Nice, sounds like our marketing team's doing their job!</div>
       <div><b>No</b>Ha, thought we were more famous than we are.</div>
     </div>
+    <div class="label">Then why you're calling</div>
+    <div class="say">${esc(openerReason(i))}</div>
   </article>
 
   <article class="step">
