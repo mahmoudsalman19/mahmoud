@@ -244,6 +244,12 @@ body { background: #FFFFFF; -webkit-font-smoothing: antialiased; }
 .rail::after { right: 0; background: linear-gradient(270deg, rgba(255,255,255,.95), rgba(255,255,255,0)); }
 .rail:has(#railL[hidden])::before { display: none; }
 .rail:has(#railR[hidden])::after { display: none; }
+
+.other-in { display: grid; gap: 6px; }
+.other-in[hidden] { display: none; }
+.other-in label { font-size: 13px; font-weight: 600; color: var(--muted); }
+.other-in input { width: 100%; padding: 10px 12px; border: 1px solid var(--accent); border-radius: 10px; font: inherit; font-size: 15px; color: var(--ink); background: #fff; box-shadow: 0 0 0 3px var(--accent-soft); }
+.other-in input:focus { outline: none; }
 </style>
 </head>
 <body>
@@ -439,7 +445,7 @@ const IND = [
     email: { moment: "condition at check-out and return", team: "staff or renters", proof: "rental operators use it to settle damage disputes with timestamped photos", vm: "rental and trade-in condition" } }
 ];
 
-const PROCESS = ["Pen and paper", "Phone photos", "Tablet / app", "3rd-party inspector", "Hardware scanner", "Competitor software", "Nothing formal"];
+const PROCESS = ["Pen and paper", "Phone photos", "Tablet / app", "3rd-party inspector", "Hardware scanner", "Competitor software", "Nothing formal", "Other"];
 
 const OBJ = [
   ["Not interested (early)", "Totally fair, you don't know what we do yet. Give me 20 seconds, and if it's not for you I'll hang up on myself. Deal?", "No worries. Before I go, what are you doing for inspections today?"],
@@ -476,7 +482,7 @@ const CORE = "Basically, our AI flags every dent, scratch and tire difference, p
 
 /* state */
 let cur = null, tab = "script", compSel = null;
-let call = { process: null, volume: "", pains: new Set() };
+let call = { process: null, volume: "", pains: new Set(), procOther: "", painOther: "" };
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -527,8 +533,10 @@ function renderPicker() {
   </section>`;
 }
 
+const procLabel = () => call.process === "Other" ? (call.procOther.trim() || "Other") : call.process;
+const painLabels = () => [...call.pains].map(k => k === "Other" ? (call.painOther.trim() || "Other") : k);
 function bookLine() {
-  const p = [...call.pains];
+  const p = painLabels().filter(x => x !== "Other");
   const pain = p.length ? p[0].toLowerCase() : "[the headache they gave you]";
   return `Sounds like ${pain} is worth a proper look. Got your calendar handy?`;
 }
@@ -550,6 +558,7 @@ function scriptTab(i) {
     <div class="step-h"><span class="num">2</span><h2>Ask their process</h2><span class="hint">Tap what they say</span></div>
     <div class="say">${esc(i.processQ)}</div>
     <div class="pick-row" id="procPick">${PROCESS.map(p => `<button class="pill-btn" type="button" data-proc="${esc(p)}" aria-pressed="${call.process === p}">${esc(p)}</button>`).join("")}</div>
+    <div class="other-in" id="procOtherWrap" ${call.process === "Other" ? "" : "hidden"}><label for="procOtherIn">What are they doing?</label><input id="procOtherIn" type="text" placeholder="e.g. walkaround with a checklist on Google Forms" value="${esc(call.procOther)}"></div>
     <div id="procTip"></div>
     <div class="label">Follow-ups</div>
     <ul class="qs">${i.follow.map(q => `<li>${esc(q)}</li>`).join("")}</ul>
@@ -558,7 +567,9 @@ function scriptTab(i) {
   <article class="step">
     <div class="step-h"><span class="num">3</span><h2>Find the headache</h2><span class="hint">Tap the ones they relate to</span></div>
     <div class="say">The main headaches we hear from ${esc(i.name.toLowerCase())} teams are [pick 2 or 3 below]. Can you relate to any of those, or not really an issue for you?</div>
-    <div class="pains" id="painPick">${i.pains.map(([t, d]) => `<button class="pain" type="button" data-pain="${esc(t)}" aria-pressed="${call.pains.has(t)}"><b>${esc(t)}</b><span>${esc(d)}</span></button>`).join("")}</div>
+    <div class="pains" id="painPick">${i.pains.map(([t, d]) => `<button class="pain" type="button" data-pain="${esc(t)}" aria-pressed="${call.pains.has(t)}"><b>${esc(t)}</b><span>${esc(d)}</span></button>`).join("")}
+      <button class="pain" type="button" data-pain="Other" aria-pressed="${call.pains.has("Other")}"><b>Other</b><span>Something else they brought up</span></button></div>
+    <div class="other-in" id="painOtherWrap" ${call.pains.has("Other") ? "" : "hidden"}><label for="painOtherIn">What's their pain, in their words?</label><input id="painOtherIn" type="text" placeholder="e.g. customers argue every charge on the phone" value="${esc(call.painOther)}"></div>
     <div class="branch">
       <div><b>They relate</b>Dig in: how often does that happen? What does it cost you when it does?</div>
       <div><b>They don't</b>Good, might not be for you then. What's working well?</div>
@@ -648,11 +659,11 @@ function sidePanel(i) {
   <div class="panel">
     <div class="panel-h"><h3>Qualify before you book</h3><span class="count" id="qCount">${[okP, okV, okPain].filter(Boolean).length}/3</span></div>
     <div class="prog" id="prog">${[okP, okV, okPain].map(x => `<i class="${x ? "on" : ""}"></i>`).join("")}</div>
-    <div class="q ${okP ? "done" : ""}"><div class="top"><span class="dot"></span>Current process</div><div class="val">${okP ? esc(call.process) : "Tap their answer in step 2"}</div></div>
+    <div class="q ${okP ? "done" : ""}"><div class="top"><span class="dot"></span>Current process</div><div class="val">${okP ? esc(procLabel()) : "Tap their answer in step 2"}</div></div>
     <div class="q ${okV ? "done" : ""}"><div class="top"><span class="dot"></span>Inspections a month</div>
       <div class="vol"><input id="vol" type="number" min="0" inputmode="numeric" placeholder="e.g. 150" value="${esc(call.volume)}" aria-label="Inspections per month">
       <span id="fitPill">${f ? `<span class="fit ${f[0]}">${f[1]}</span>` : ""}</span></div></div>
-    <div class="q ${okPain ? "done" : ""}"><div class="top"><span class="dot"></span>Their pain</div><div class="val">${okPain ? esc([...call.pains].join(", ")) : "Tap what they relate to in step 3"}</div></div>
+    <div class="q ${okPain ? "done" : ""}"><div class="top"><span class="dot"></span>Their pain</div><div class="val">${okPain ? esc(painLabels().join(", ")) : "Tap what they relate to in step 3"}</div></div>
     <div class="status ${ready ? "go" : "wait"}">${ready ? "Ready to book" : "Keep digging"}<small>${ready ? "Go to step 5 and ask for the calendar." : "Get all three before you ask for the meeting."}</small></div>
   </div>
   <div class="panel"><h3>If they ask "what do you guys do?"</h3><div class="say">${esc(WHAT2)}</div><div class="say soft">${esc(WHAT)}</div><div class="note">Then flip it back: how are you doing inspections today?</div></div>
@@ -708,7 +719,7 @@ function choose(id, keepCall) {
 }
 
 function resetCall() {
-  call = { process: null, volume: "", pains: new Set() }; compSel = null;
+  call = { process: null, volume: "", pains: new Set(), procOther: "", painOther: "" }; compSel = null;
   tab = "script"; cur = null;
   try { history.replaceState(null, "", location.pathname + location.search); } catch (err) {}
   renderChips(); renderPicker(); window.scrollTo(0, 0);
@@ -726,6 +737,8 @@ document.addEventListener("click", e => {
     call.process = call.process === p.dataset.proc ? null : p.dataset.proc;
     document.querySelectorAll("[data-proc]").forEach(b => b.setAttribute("aria-pressed", b.dataset.proc === call.process));
     if (call.process === "Competitor software") { tab = "comp"; renderScript(); window.scrollTo(0, 0); return; }
+    const ow = $("#procOtherWrap"); ow.hidden = call.process !== "Other";
+    if (!ow.hidden) $("#procOtherIn").focus();
     procTip(); refreshSide(); return;
   }
   const cp = e.target.closest("[data-comp]");
@@ -735,6 +748,7 @@ document.addEventListener("click", e => {
     const k = pn.dataset.pain;
     call.pains.has(k) ? call.pains.delete(k) : call.pains.add(k);
     pn.setAttribute("aria-pressed", call.pains.has(k));
+    if (k === "Other") { const w = $("#painOtherWrap"); w.hidden = !call.pains.has("Other"); if (!w.hidden) $("#painOtherIn").focus(); }
     refreshSide(); return;
   }
   const c = e.target.closest("[data-copy]");
@@ -762,6 +776,8 @@ document.addEventListener("input", e => {
     st.className = "status " + (ready ? "go" : "wait");
     st.innerHTML = ready ? "Ready to book<small>Go to step 5 and ask for the calendar.</small>" : "Keep digging<small>Get all three before you ask for the meeting.</small>";
   }
+  if (e.target.id === "procOtherIn") { call.procOther = e.target.value; refreshSide(); }
+  if (e.target.id === "painOtherIn") { call.painOther = e.target.value; refreshSide(); }
   if (e.target.id === "objSearch") {
     const q = e.target.value.trim().toLowerCase();
     document.querySelectorAll("#objList .obj").forEach(d => {
