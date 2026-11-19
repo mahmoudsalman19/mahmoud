@@ -32,28 +32,8 @@
   --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
   color-scheme: light;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #000000; --surface: #111219; --ink: #FFFFFF; --muted: #A3A6B0; --line: #262833;
-    --accent: #3D74FF; --accent-soft: #10204A; --accent-ink: #FFFFFF;
-    --say: #1A1C26; --say-ink: #FFFFFF;
-    --good: #5FCB8C; --good-soft: #13291B; --warn: #EDB45A; --warn-soft: #2E230E; --bad: #FF8A7D; --bad-soft: #351A17;
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #000000; --surface: #111219; --ink: #FFFFFF; --muted: #A3A6B0; --line: #262833;
-  --accent: #3D74FF; --accent-soft: #10204A; --accent-ink: #FFFFFF;
-  --say: #1A1C26; --say-ink: #FFFFFF;
-  --good: #5FCB8C; --good-soft: #13291B; --warn: #EDB45A; --warn-soft: #2E230E; --bad: #FF8A7D; --bad-soft: #351A17;
-  color-scheme: dark;
-}
-/* logo swap by theme */
 .logo { height: 24px; width: auto; display: block; }
 .logo-dark { display: none; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .logo-light { display: none; } :root:not([data-theme="light"]) .logo-dark { display: block; } }
-:root[data-theme="dark"] .logo-light { display: none; }
-:root[data-theme="dark"] .logo-dark { display: block; }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
@@ -180,6 +160,76 @@ ul.qs { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
 ol.cad { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 14px; }
 .copied { color: var(--good); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ---- Modern layer: white canvas, soft depth, viewfinder corners from the logo ---- */
+:root { --shadow-sm: 0 1px 2px rgba(0,0,0,.05); --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 28px rgba(16,24,40,.06); --shadow-lg: 0 2px 4px rgba(0,0,0,.04), 0 16px 40px rgba(1,76,242,.12); --radius: 16px; }
+body { background: #FFFFFF; -webkit-font-smoothing: antialiased; }
+.topbar { background: rgba(255,255,255,.82); backdrop-filter: saturate(180%) blur(14px); -webkit-backdrop-filter: saturate(180%) blur(14px); border-bottom: 1px solid var(--line); padding: 12px 24px; flex-wrap: nowrap; }
+.chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; mask-image: linear-gradient(90deg, #000 92%, transparent); -webkit-mask-image: linear-gradient(90deg, #000 92%, transparent); padding: 2px 24px 2px 2px; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { white-space: nowrap; background: #F4F5F5; border-color: transparent; padding: 6px 14px; transition: background .15s, color .15s; }
+.chip:hover { background: #EAECEE; border-color: transparent; }
+.chip[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+.btn { border-radius: 999px; padding: 8px 16px; background: #fff; box-shadow: var(--shadow-sm); white-space: nowrap; }
+.btn.primary { box-shadow: 0 6px 18px rgba(1,76,242,.28); }
+@media (max-width: 720px) { .brand-sub { display: none; } .topbar { padding: 10px 16px; } }
+
+.picker { padding: 56px 24px 72px; max-width: 1120px; }
+.picker h1 { font-size: clamp(36px, 6vw, 60px); font-weight: 300; line-height: 1.05; }
+.picker p.lead { font-size: 17px; margin: 14px 0 36px; max-width: 56ch; }
+.grid { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
+.card-pick { position: relative; border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 22px 18px; box-shadow: var(--shadow-sm); gap: 8px; transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+.card-pick:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); border-color: transparent; }
+.card-pick h2 { font-size: 19px; font-weight: 600; letter-spacing: -0.02em; }
+.card-pick .hook { font-size: 14px; color: var(--ink); }
+.key { background: #F4F5F5; border: none; border-radius: 6px; padding: 2px 7px; }
+.go-arrow { margin-top: 6px; font-size: 13px; font-weight: 600; color: var(--accent); opacity: 0; transform: translateX(-4px); transition: opacity .2s, transform .2s; }
+.card-pick:hover .go-arrow, .card-pick:focus-visible .go-arrow { opacity: 1; transform: none; }
+.vf { position: absolute; inset: 8px; pointer-events: none; opacity: 0; transition: opacity .2s, inset .2s; }
+.vf b { position: absolute; width: 14px; height: 14px; border-color: var(--accent); border-style: solid; border-width: 0; }
+.vf b:nth-child(1) { top: 0; left: 0; border-top-width: 3px; border-left-width: 3px; }
+.vf b:nth-child(2) { top: 0; right: 0; border-top-width: 3px; border-right-width: 3px; }
+.vf b:nth-child(3) { bottom: 0; left: 0; border-bottom-width: 3px; border-left-width: 3px; }
+.vf b:nth-child(4) { bottom: 0; right: 0; border-bottom-width: 3px; border-right-width: 3px; }
+.card-pick:hover .vf, .card-pick:focus-visible .vf { opacity: 1; inset: -6px; }
+
+.wrap { padding: 32px 24px 80px; gap: 28px; grid-template-columns: minmax(0, 1fr) 340px; }
+.head { margin-bottom: 18px; }
+.head h1 { font-size: clamp(32px, 4vw, 44px); font-weight: 300; }
+.head .who { font-size: 15px; margin-top: 4px; }
+.tabs { display: inline-flex; gap: 4px; background: #F4F5F5; border: none; border-radius: 999px; padding: 4px; margin-bottom: 20px; max-width: 100%; }
+.tab { border: none; border-radius: 999px; padding: 8px 16px; font-size: 14px; }
+.tab[aria-selected="true"] { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.08); border-bottom: none; }
+
+.step { border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 24px; box-shadow: var(--shadow); gap: 14px; margin-bottom: 16px; }
+.step-h h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+.num { width: 30px; height: 30px; border-radius: 9px; font-size: 13px; font-weight: 600; box-shadow: 0 4px 12px rgba(1,76,242,.25); }
+.step-h .hint { background: #F4F5F5; border-radius: 999px; padding: 3px 10px; }
+.say { border-radius: 0 12px 12px 0; padding: 14px 16px; font-size: 16.5px; line-height: 1.55; }
+.say.soft { border-radius: 12px; border-style: dashed; }
+.branch div { border-radius: 12px; background: #FAFAFA; border-color: var(--line); padding: 10px 12px; }
+.pill-btn { background: #fff; padding: 6px 13px; }
+.pain { border-radius: 12px; padding: 10px 12px; transition: border-color .15s, background .15s; }
+.proof, .caution { border-radius: 0 12px 12px 0; }
+
+.side { top: 84px; gap: 16px; }
+.panel { border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px 20px; gap: 12px; }
+.panel h3 { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.panel-h { display: flex; justify-content: space-between; align-items: center; }
+.count { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.prog { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.prog i { height: 6px; border-radius: 999px; background: #ECEEF0; transition: background .25s; }
+.prog i.on { background: var(--accent); }
+.vol input { background: #fff; border-radius: 8px; padding: 7px 10px; }
+.status { border-radius: 12px; }
+.status.wait { background: #F4F5F5; }
+.q.done .dot { background: var(--accent); border-color: var(--accent); }
+.status.go { background: var(--accent); color: #fff; box-shadow: 0 8px 20px rgba(1,76,242,.25); }
+.obj, .comp, .tpl { border-radius: 14px; box-shadow: var(--shadow-sm); }
+.comp-btn { border-radius: 12px; }
+.search { border-radius: 999px; padding: 11px 16px; background: #F4F5F5; border-color: transparent; }
+.search:focus { background: #fff; border-color: var(--accent); outline: none; }
+.tpl pre { border-radius: 10px; }
 </style>
 </head>
 <body>
@@ -439,6 +489,8 @@ function renderPicker() {
         <div class="row"><h2>${esc(i.name)}</h2><span class="key">${k === 9 ? 0 : k + 1}</span></div>
         <div class="who">${esc(i.who)}</div>
         <div class="hook">${esc(i.hook)}${i.isNew ? ` <span class="tag-new">New</span>` : ""}</div>
+        <span class="go-arrow" aria-hidden="true">Open script →</span>
+        <span class="vf" aria-hidden="true"><b></b><b></b><b></b><b></b></span>
       </button>`).join("")}
     </div>
   </section>`;
@@ -563,7 +615,8 @@ function sidePanel(i) {
   const ready = okP && okV && okPain;
   return `
   <div class="panel">
-    <h3>Qualify before you book</h3>
+    <div class="panel-h"><h3>Qualify before you book</h3><span class="count" id="qCount">${[okP, okV, okPain].filter(Boolean).length}/3</span></div>
+    <div class="prog" id="prog">${[okP, okV, okPain].map(x => `<i class="${x ? "on" : ""}"></i>`).join("")}</div>
     <div class="q ${okP ? "done" : ""}"><div class="top"><span class="dot"></span>Current process</div><div class="val">${okP ? esc(call.process) : "Tap their answer in step 2"}</div></div>
     <div class="q ${okV ? "done" : ""}"><div class="top"><span class="dot"></span>Inspections a month</div>
       <div class="vol"><input id="vol" type="number" min="0" inputmode="numeric" placeholder="e.g. 150" value="${esc(call.volume)}" aria-label="Inspections per month">
@@ -668,6 +721,9 @@ document.addEventListener("input", e => {
     $("#fitPill").innerHTML = f ? `<span class="fit ${f[0]}">${f[1]}</span>` : "";
     const q = e.target.closest(".q"); q.classList.toggle("done", !!f);
     const ready = !!call.process && !!f && call.pains.size > 0;
+    const flags = [!!call.process, !!f, call.pains.size > 0];
+    $("#prog").innerHTML = flags.map(x => `<i class="${x ? "on" : ""}"></i>`).join("");
+    $("#qCount").textContent = flags.filter(Boolean).length + "/3";
     const st = $(".status");
     st.className = "status " + (ready ? "go" : "wait");
     st.innerHTML = ready ? "Ready to book<small>Go to step 5 and ask for the calendar.</small>" : "Keep digging<small>Get all three before you ask for the meeting.</small>";
