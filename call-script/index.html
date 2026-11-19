@@ -250,6 +250,11 @@ body { background: #FFFFFF; -webkit-font-smoothing: antialiased; }
 .other-in label { font-size: 13px; font-weight: 600; color: var(--muted); }
 .other-in input { width: 100%; padding: 10px 12px; border: 1px solid var(--accent); border-radius: 10px; font: inherit; font-size: 15px; color: var(--ink); background: #fff; box-shadow: 0 0 0 3px var(--accent-soft); }
 .other-in input:focus { outline: none; }
+
+.subj { font-size: 14px; color: var(--ink); }
+.subj span { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--accent); margin-right: 8px; }
+.mail { background: #F4F5F5; border-radius: 10px; padding: 14px 16px; font-size: 14.5px; line-height: 1.55; user-select: text; }
+.mail a { color: var(--accent); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -632,6 +637,14 @@ function compTab() {
   <p class="note" style="margin:12px 0 0">Never trash them. Compliment, then ask the question that shows the gap. Our edge: AI plus an expert check on every finding, no app or hardware, custom flows, open API.</p>`;
 }
 
+function emailHtml(i) {
+  const p = t => `<p style="margin:0 0 12px">${t}</p>`;
+  return p("Hey [Name],")
+    + p(`Just tried you. Quick one: how are you guys handling ${esc(i.email.moment)} right now?`)
+    + p(`We built a tool where your ${esc(i.email.team)} do a <b>90-second walkaround on their phone</b> and AI flags and prices every dent, checked by a real expert. ${esc(cap(i.email.proof))}.`)
+    + p(`Worth a quick chat? <a href="${BOOK}">Click here</a> to grab a time.`)
+    + `<p style="margin:0">Mahmoud<br>Self Inspection | ${esc(PHONE)} | ${esc(WORK_EMAIL)}</p>`;
+}
 function emailText(i) {
   return `Subject: quick one, [Company]
 
@@ -641,7 +654,7 @@ Just tried you. Quick one: how are you guys handling ${i.email.moment} right now
 
 We built a tool where your ${i.email.team} do a 90-second walkaround on their phone and AI flags and prices every dent, checked by a real expert. ${cap(i.email.proof)}.
 
-Worth a quick chat? ${BOOK}
+Worth a quick chat? Click here to grab a time: ${BOOK}
 
 Mahmoud
 Self Inspection | ${PHONE} | ${WORK_EMAIL}`;
@@ -656,8 +669,9 @@ function mailTab(i) {
   <div class="tpl"><div class="row"><h3>Voicemail</h3><button class="btn" type="button" data-copy="vm">Copy</button></div>
     <div class="note">Under 20 seconds. Don't pitch.</div><pre id="vmText">${esc(vmText(i))}</pre></div>
   <div class="tpl"><div class="row"><h3>No-answer email</h3><button class="btn" type="button" data-copy="email">Copy</button></div>
-    <div class="note">Send right after every missed call. Already filled for ${esc(i.name.toLowerCase())}. Swap in [Name] and [Company], and bold the walkaround line in your email tool.</div>
-    <pre id="emailText">${esc(emailText(i))}</pre></div>
+    <div class="note">Send right after every missed call. Already filled for ${esc(i.name.toLowerCase())}. Copy pastes with the "Click here" link and bold already in, so just swap in [Name] and [Company].</div>
+    <div class="subj"><span>Subject</span> quick one, [Company]</div>
+    <div class="mail" id="emailHtml">${emailHtml(i)}</div></div>
   <div class="tpl"><h3>Cadence after a no-answer</h3>
     <ol class="cad"><li>Day 0: call, voicemail, no-answer email</li><li>Day 3: call again (new HubSpot to-do, max 15 a day)</li><li>Day 6: call plus a short bump email</li><li>Day 9: try a different contact at the company, or LinkedIn</li></ol></div>`;
 }
@@ -764,9 +778,16 @@ document.addEventListener("click", e => {
   }
   const c = e.target.closest("[data-copy]");
   if (c) {
-    const txt = c.dataset.copy === "vm" ? vmText(cur) : emailText(cur);
+    const isMail = c.dataset.copy === "email";
+    const txt = isMail ? emailText(cur).replace(/^Subject:.*\n\n/, "") : vmText(cur);
     const done = ok => { c.textContent = ok ? "Copied" : "Select and copy"; c.classList.toggle("copied", ok); setTimeout(() => { c.textContent = "Copy"; c.classList.remove("copied"); }, 1800); };
-    try { navigator.clipboard.writeText(txt).then(() => done(true), () => done(false)); } catch (err) { done(false); }
+    const plain = () => navigator.clipboard.writeText(txt).then(() => done(true), () => done(false));
+    try {
+      if (isMail && window.ClipboardItem && navigator.clipboard.write) {
+        const item = new ClipboardItem({ "text/html": new Blob([emailHtml(cur)], { type: "text/html" }), "text/plain": new Blob([txt], { type: "text/plain" }) });
+        navigator.clipboard.write([item]).then(() => done(true), () => { try { plain(); } catch (e2) { done(false); } });
+      } else { plain(); }
+    } catch (err) { done(false); }
     return;
   }
   if (e.target.id === "newCall") { resetCall(); return; }
