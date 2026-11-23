@@ -257,6 +257,9 @@ body { background: #FFFFFF; -webkit-font-smoothing: antialiased; }
 .mail a { color: var(--accent); font-weight: 600; }
 .btns { display: flex; gap: 8px; flex-wrap: wrap; }
 .btn.primary.copied { color: #fff; }
+/* Phone fixes: keep one column under 900px (the modern layer above re-set two columns), and give the industry chips their own row */
+@media (max-width: 900px) { .wrap { grid-template-columns: minmax(0, 1fr); padding: 20px 16px 60px; } .side { position: static; } }
+@media (max-width: 600px) { .topbar { flex-wrap: wrap; } .rail { order: 3; flex-basis: 100%; } }
 </style>
 </head>
 <body>
@@ -472,6 +475,21 @@ const OBJ = [
   ["We're too small", "How many inspections a month? (Under ~10, be honest and move on.) If more: honestly that's where you feel every missed scratch the most.", "Know a bigger operator who'd get more out of it?"]
 ];
 
+/* From the September 2026 script */
+const PREP = ["Check their website: industry and typical headaches", "Call with a purpose in mind and a few open questions ready"];
+const PROC_MORE = ["We work with people in your space and everyone's doing something different. Mind sharing what you're doing for vehicle inspections?", "Do you handle the inspection yourself, or do you have a team for that?", "Do you have specific hardware you use for inspecting?", "How do you keep condition reports organized?", "How long has it been since you last reviewed your process?", "Have you ever considered what software could do to help in that workflow?", "How do you prove damage was done by the customer and not one of your team?"];
+const HEAD_RESP = [
+  ["Speed of inspection", ["What have you done to speed things up?", "Where do you think the bottleneck is to getting a vehicle inspected and back on the lot?", "Is the slowdown hitting people at check-out, or when they bring the vehicle back?"]],
+  ["Damages", ["Is it hard to find during an inspection, or hard to prove the driver did it?", "Is the problem identifying damage properly, getting a repair estimate, or winning the damage claim?"]],
+  ["Consistency of records", ["When you go to find records on a vehicle, what's your setup?", "Is that slowing you down in other areas?"]],
+  ["Don't do inspections", ["Is that because you don't need to, or you're not worried about tracking the condition of the fleet?"]],
+  ["Expensive 3rd-party inspections", ["Is cost the only thing you wish was better with that setup?", "How long does it take to get a condition report back?"]]
+];
+const HOW = ["Web-based inspection software, works on any device with a camera", "You can customize all the steps: pictures and mandatory steps", "The platform guides your team or customers through step-by-step photo capture, or they take a quick video walkaround and the AI pulls the stills and builds a condition report", "Every vehicle gets a record, so you track its condition over time", "Completely open API, so it fits into your process easily"];
+const NOTES = ["Self-guided process, so nobody needs training. Stencils on screen make each photo easy to line up.", "A human-verified report goes alongside the AI report.", "Redirect their pain into how we'd help them.", "Acknowledge what they said, then move the call forward with a question.", "Acknowledge what's happening in their background (busy lot, counter, noise).", "Ask: what made you choose [competitor]? When do you usually review your process?"];
+
+const OBJ_KEYS = { "How much is it?": "price pricing cost", "Too busy": "bad time later call back", "Just send me an email": "info", "No budget": "price cost money", "We use software already": "competitor" };
+
 const COMP = [
   ["Record360", "Photo and video capture and storage, self-guided flow", "Heard they're great for storing images. Do you find it takes time to go back through the photos and actually spot the damage? Ours does that part for you and prices it."],
   ["Pave", "AI phone inspection, close to us", "They're solid and similar to us in some ways. People who switched told us they wanted more custom steps and better integration with what they already run. Can you relate?"],
@@ -490,7 +508,7 @@ const CORE = "Basically, our AI flags every dent, scratch and tire difference, p
 
 /* state */
 let cur = null, tab = "script", compSel = null;
-let call = { process: null, volume: "", pains: new Set(), procOther: "", painOther: "" };
+let call = { process: null, volume: "", pains: new Set(), procOther: "", painOther: "", ai: null };
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -558,6 +576,7 @@ function bookLine() {
 function scriptTab(i) {
   return `
   ${i.caution ? `<div class="caution" style="margin-bottom:12px"><b>Heads up.</b> ${esc(i.caution)}</div>` : ""}
+  <div class="note" style="margin:0 0 12px"><b style="color:var(--ink)">Before you dial:</b> ${PREP.map(esc).join(". ")}.</div>
   <article class="step">
     <div class="step-h"><span class="num">1</span><h2>Opener</h2><span class="hint">Under 15 seconds</span></div>
     <div class="say">Hey [Name], it's Mahmoud from Self Inspection. I don't know if you've heard of the name before?</div>
@@ -579,6 +598,7 @@ function scriptTab(i) {
     <div id="procTip"></div>
     <div class="label">Follow-ups</div>
     <ul class="qs">${i.follow.map(q => `<li>${esc(q)}</li>`).join("")}</ul>
+    <details class="obj"><summary>More process questions</summary><div class="body"><ul class="qs">${PROC_MORE.map(q => `<li>${esc(q)}</li>`).join("")}</ul></div></details>
   </article>
 
   <article class="step">
@@ -586,13 +606,15 @@ function scriptTab(i) {
     <div class="say">The main headaches we hear from ${esc(i.name.toLowerCase())} teams are [pick 2 or 3 below]. Can you relate to any of those, or not really an issue for you?</div>
     <div class="pains" id="painPick">${i.pains.map(([t, d]) => `<button class="pain" type="button" data-pain="${esc(t)}" aria-pressed="${call.pains.has(t)}"><b>${esc(t)}</b><span>${esc(d)}</span></button>`).join("")}
       <button class="pain" type="button" data-pain="Other" aria-pressed="${call.pains.has("Other")}"><b>Other</b><span>Something else they brought up</span></button></div>
-    <div class="other-in" id="painOtherWrap" ${call.pains.has("Other") ? "" : "hidden"}><label for="painOtherIn">What's their pain, in their words?</label><input id="painOtherIn" type="text" placeholder="e.g. customers argue every charge on the phone" value="${esc(call.painOther)}"></div>
+    <div class="other-in" id="painOtherWrap" ${call.pains.has("Other") ? "" : "hidden"}><label for="painOtherIn">What's their pain, in their words?</label><input id="painOtherIn" type="text" placeholder="e.g. customers argue every charge on the phone" value="${esc(call.painOther)}"><div class="note">Press Enter for a tailored answer you can say back.</div><div id="painAI">${aiHtml()}</div></div>
     <div class="branch">
       <div><b>They relate</b>Dig in: how often does that happen? What does it cost you when it does?</div>
       <div><b>They don't</b>Good, might not be for you then. What's working well?</div>
     </div>
     <div class="label">Dig deeper</div>
     <ul class="qs">${i.dig.map(q => `<li>${esc(q)}</li>`).join("")}<li>If you had a magic wand, what's one thing you'd change about your process?</li></ul>
+    <div class="label">If their headache is…</div>
+    ${HEAD_RESP.map(([t, qs]) => `<details class="obj"><summary>${esc(t)}</summary><div class="body"><ul class="qs">${qs.map(q => `<li>${esc(q)}</li>`).join("")}</ul></div></details>`).join("")}
   </article>
 
   <article class="step">
@@ -619,7 +641,7 @@ function scriptTab(i) {
 function objTab() {
   return `<input class="search" id="objSearch" type="search" placeholder="Type what they said, e.g. price, busy, email" aria-label="Search objections">
   <div id="objList">${OBJ.map(([t, a, b], k) => `
-    <details class="obj" data-text="${esc((t + " " + a + " " + b).toLowerCase())}" ${k === 0 ? "open" : ""}>
+    <details class="obj" data-text="${esc((t + " " + a + " " + b + " " + (OBJ_KEYS[t] || "")).toLowerCase())}" ${k === 0 ? "open" : ""}>
       <summary>${esc(t)}</summary>
       <div class="body"><div class="say">${esc(a)}</div><div class="label">If they push again</div><div>${esc(b)}</div></div>
     </details>`).join("")}</div>`;
@@ -693,7 +715,9 @@ function sidePanel(i) {
     <div class="q ${okPain ? "done" : ""}"><div class="top"><span class="dot"></span>Their pain</div><div class="val">${okPain ? esc(painLabels().join(", ")) : "Tap what they relate to in step 3"}</div></div>
     <div class="status ${ready ? "go" : "wait"}">${ready ? "Ready to book" : "Keep digging"}<small>${ready ? "Go to step 5 and ask for the calendar." : "Get all three before you ask for the meeting."}</small></div>
   </div>
-  <div class="panel"><h3>If they ask "what do you guys do?"</h3><div class="say">${esc(WHAT2)}</div><div class="say soft">${esc(WHAT)}</div><div class="note">Then flip it back: how are you doing inspections today?</div></div>
+  <div class="panel"><h3>If they ask "what do you guys do?"</h3><div class="say">${esc(WHAT2)}</div><div class="say soft">${esc(WHAT)}</div><div class="note">Then flip it back: how are you doing inspections today?</div>
+    <details class="obj" style="box-shadow:none"><summary>Long form: how it works</summary><div class="body"><ul class="qs">${HOW.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div></details></div>
+  <div class="panel"><h3>Reminders</h3><ul class="qs" style="font-size:13.5px">${NOTES.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>
   <div class="panel"><h3>Ask for</h3><div class="note" style="color:var(--ink)">${esc(i.who)}</div></div>
   <div class="panel"><h3>Numbers to drop</h3><div class="stat-list">${STATS.map(([a, b]) => `<div><span>${a}</span><span>${b}</span></div>`).join("")}</div></div>`;
 }
@@ -738,7 +762,7 @@ function refreshSide() {
 function choose(id, keepCall) {
   const i = IND.find(x => x.id === id);
   if (!i) { cur = null; renderChips(); renderPicker(); return; }
-  if (!keepCall && (!cur || cur.id !== id)) call.pains = new Set();
+  if (!keepCall && (!cur || cur.id !== id)) { call.pains = new Set(); call.ai = null; }
   cur = i; tab = "script";
   renderChips(); renderScript();
   try { if (location.hash !== "#" + id) history.replaceState(null, "", "#" + id); } catch (err) {}
@@ -746,11 +770,81 @@ function choose(id, keepCall) {
 }
 
 function resetCall() {
-  call = { process: null, volume: "", pains: new Set(), procOther: "", painOther: "" }; compSel = null;
+  call = { process: null, volume: "", pains: new Set(), procOther: "", painOther: "", ai: null }; compSel = null;
   tab = "script"; cur = null;
   try { history.replaceState(null, "", location.pathname + location.search); } catch (err) {}
   renderChips(); renderPicker(); window.scrollTo(0, 0);
 }
+
+/* Tailored answer for an "Other" pain (asks Claude when the page runs on claude.ai) */
+let aiBusy = false, aiCtl = null;
+const sampleP = (window.claude && window.claude.use) ? window.claude.use("sample").catch(() => null) : Promise.resolve(null);
+function aiHtml() {
+  const a = call.ai;
+  if (!a) return "";
+  if (a.state === "wait") return `<div class="note" style="margin-top:8px">Thinking about "${esc(a.pain)}"…</div>`;
+  if (a.state === "err") return `<div class="caution" style="margin-top:8px">${esc(a.msg)}</div>`;
+  return `<div style="display:grid;gap:8px;margin-top:8px">
+    <div class="label">Tailored to: ${esc(a.pain)}</div>
+    <div class="say">${esc(a.ack)}</div>
+    <div class="say">${esc(a.value)}</div>
+    ${a.proof ? `<div class="proof"><b>Proof:</b> ${esc(a.proof)}</div>` : ""}
+    <div class="label">Then ask</div><ul class="qs">${(a.ask || []).map(q => `<li>${esc(q)}</li>`).join("")}</ul>
+  </div>`;
+}
+function paintAI() { const el = $("#painAI"); if (el) el.innerHTML = aiHtml(); }
+async function tailor() {
+  const pain = call.painOther.trim();
+  if (!pain || aiBusy) return;
+  const sample = await sampleP;
+  if (!sample) { call.ai = { state: "err", pain, msg: "Tailored answers only work when this script is open on claude.ai. Use the dig questions below for now." }; paintAI(); return; }
+  aiBusy = true; call.ai = { state: "wait", pain }; paintAI();
+  const i = cur;
+  const facts = [
+    "Company: Self Inspection. " + WHAT,
+    "Core line: " + CORE,
+    "Industry: " + i.name + ". Who we talk to: " + i.who + ".",
+    "Our pitch for this industry: " + i.value,
+    "Approved proof for this industry: " + i.proof,
+    i.caution ? "Caution: " + i.caution : "",
+    "Company numbers: " + STATS.map(([a, b]) => a + " " + b).join("; ") + ". NAAA member, NY State accredited on damage estimates, ARA certified.",
+    "Their current process: " + (procLabel() || "unknown") + ".",
+    "Other pains they already agreed with: " + (painLabels().filter(x => x !== "Other").join(", ") || "none") + ".",
+    "How it works: " + HOW.join("; ") + ".",
+    "Seller notes: " + NOTES.join(" "),
+    "Proven follow-up questions by headache: " + HEAD_RESP.map(([t, qs]) => t + ": " + qs.join(" ")).join(" | "),
+    "Never quote prices. If cost comes up, say it depends on volume and setup, and ask how many inspections a month.",
+    "Capture takes about 90 seconds. Use that number, not any other."
+  ].filter(Boolean).join("\n");
+  const prompt = `You help Mahmoud, an SDR at Self Inspection, on a LIVE cold call. The prospect just described a pain in their own words. Write what Mahmoud says next.
+
+FACTS (use only these, never invent customers, numbers, prices, integrations or features):
+${facts}
+
+PROSPECT'S PAIN, IN THEIR WORDS: "${pain}"
+
+Rules: spoken, casual, short sentences, no jargon, no dashes. Don't promise pricing or anything not in FACTS. If the pain is something Self Inspection doesn't solve, say so honestly in "ack" and use "value" to steer back to inspections.
+Return JSON only:
+{"ack": "1 sentence that shows he heard them, in their words",
+ "value": "2 or 3 sentences linking that pain to how Self Inspection helps",
+ "proof": "one proof point copied from FACTS that fits best, or empty string",
+ "ask": ["2 short follow-up questions to dig into the pain"]}`;
+  try {
+    if (aiCtl) aiCtl.abort();
+    aiCtl = new AbortController();
+    const r = await sample.json(prompt, { modelTier: "quick", signal: aiCtl.signal });
+    if (!r || !r.ack) throw { message: "empty" };
+    call.ai = { state: "ok", pain, ack: String(r.ack), value: String(r.value || ""), proof: String(r.proof || ""), ask: Array.isArray(r.ask) ? r.ask.slice(0, 3).map(String) : [] };
+  } catch (err) {
+    const msg = err && err.code === "not_granted" ? "Claude access was declined for this page, so tailored answers are off." : err && err.code === "rate_limited" ? "Too many requests right now. Wait a few seconds and press Enter again." : "Couldn't get a tailored answer. Press Enter to try again, or use the dig questions below.";
+    call.ai = { state: "err", pain, msg };
+  }
+  aiBusy = false; paintAI();
+}
+
+document.addEventListener("keydown", e => {
+  if (e.target.id === "painOtherIn" && e.key === "Enter") { e.preventDefault(); tailor(); }
+});
 
 document.addEventListener("click", e => {
   const arr = e.target.closest("#railL, #railR");
